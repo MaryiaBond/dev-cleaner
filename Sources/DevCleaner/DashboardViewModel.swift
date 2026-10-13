@@ -9,7 +9,14 @@ final class DashboardViewModel: ObservableObject {
     @Published private(set) var log: [String] = []
     @Published private(set) var children: [StorageCategory: ChildScanResult] = [:]
     @Published private(set) var loadingChildren: Set<StorageCategory> = []
+    @Published private(set) var reactNativeProjects: ReactNativeProjectsState = .idle
     private var scanGeneration = 0
+    private var projectScanGeneration = 0
+
+    var isLoadingProjects: Bool {
+        if case .loading = reactNativeProjects { return true }
+        return false
+    }
 
     func scan(reloading requestedCategories: Set<StorageCategory> = []) async {
         guard !isBusy else { return }
@@ -71,6 +78,31 @@ final class DashboardViewModel: ObservableObject {
     func reveal(_ category: StorageCategory) {
         let url = URL(fileURLWithPath: category.path)
         NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    func scanReactNativeProjects() async {
+        guard !isLoadingProjects else { return }
+        projectScanGeneration += 1
+        let generation = projectScanGeneration
+        reactNativeProjects = .loading
+        log.append("Поиск React Native / Expo-проектов…")
+
+        let result = await Task.detached(priority: .userInitiated) {
+            FileSystemScanner.scanReactNativeProjects()
+        }.value
+
+        guard generation == projectScanGeneration else { return }
+        switch result {
+        case .success(let projects, let warnings):
+            reactNativeProjects = .loaded(projects, warnings: warnings)
+            log.append("Найдено React Native / Expo-проектов: \(projects.count)")
+            for warning in warnings {
+                log.append("Предупреждение поиска проектов: \(warning)")
+            }
+        case .failure(let message):
+            reactNativeProjects = .failure(message)
+            log.append("Ошибка поиска проектов: \(message)")
+        }
     }
 
 

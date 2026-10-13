@@ -103,3 +103,54 @@ struct DiskUsage: Sendable {
     let free: Int64
     var used: Int64 { max(0, total - free) }
 }
+
+enum ReactNativeProjectType: String, Sendable {
+    case expoWithNative = "Expo с native-директориями"
+    case expoManaged = "Expo без native-директорий"
+    case reactNativeCLI = "React Native CLI"
+}
+
+enum ProjectStorageKind: String, Sendable {
+    case dependencies = "Зависимости"
+    case androidBuild = "Результаты Android-сборки"
+    case androidGradle = "Локальные данные Gradle проекта"
+    case iosBuild = "Результаты iOS-сборки"
+    case cocoaPods = "Зависимости CocoaPods"
+    case expo = "Локальные данные Expo"
+    case git = "История Git — только анализ"
+    case gitWorktreeMetadata = "Метаданные Git worktree — только анализ"
+}
+
+struct ProjectStorageEntry: Identifiable, Sendable {
+    let relativePath: String
+    let path: String
+    let kind: ProjectStorageKind
+    let bytes: Int64?
+    let error: String?
+
+    var id: String { path }
+}
+
+struct GitWorktreeInfo: Sendable {
+    let mainRepositoryPath: String?
+}
+
+struct ReactNativeProject: Identifiable, Sendable {
+    let name: String
+    let path: String
+    let type: ReactNativeProjectType
+    let isBackup: Bool
+    let worktree: GitWorktreeInfo?
+    let totalBytes: Int64?
+    let storage: [ProjectStorageEntry]
+    let warnings: [String]
+
+    var id: String { path }
+}
+
+enum ReactNativeProjectsState: Sendable {
+    case idle
+    case loading
+    case loaded([ReactNativeProject], warnings: [String])
+    case failure(String)
+}

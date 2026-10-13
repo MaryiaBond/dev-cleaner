@@ -18,10 +18,11 @@ struct DashboardView: View {
                 Spacer()
                 Button {
                     Task { await model.scan() }
+                    Task { await model.scanReactNativeProjects() }
                 } label: {
                     Label("Сканировать", systemImage: "arrow.clockwise")
                 }
-                .disabled(model.isBusy)
+                .disabled(model.isBusy || model.isLoadingProjects)
                 .buttonStyle(.borderedProminent)
             }
 
@@ -36,12 +37,15 @@ struct DashboardView: View {
             HStack {
                 Text("Кэши и инструменты").font(.title3.bold())
                 Spacer()
-                if model.isBusy { ProgressView().controlSize(.small) }
+                if model.isBusy || model.isLoadingProjects {
+                    ProgressView().controlSize(.small)
+                }
             }
 
 
-        List(model.items) { item in
-            DisclosureGroup(
+        List {
+            ForEach(model.items) { item in
+                DisclosureGroup(
                 isExpanded: Binding(
                     get: {
                         expandedCategories.contains(item.category)
@@ -60,7 +64,7 @@ struct DashboardView: View {
                         }
                     }
                 )
-            ) {
+                ) {
                 if model.loadingChildren.contains(item.category) {
                     ProgressView("Анализ папок...")
                         .padding(.vertical, 8)
@@ -124,7 +128,7 @@ struct DashboardView: View {
                             .foregroundStyle(.orange)
                     }
                 }
-            } label: {
+                } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "folder.fill")
                         .foregroundStyle(
@@ -132,7 +136,7 @@ struct DashboardView: View {
                         )
                         .frame(
                             width: DashboardRowLayout.categoryIconWidth,
-                            height: DashboardRowLayout.categoryIconWidth
+                            height: DashboardRowLayout.iconSize
                         )
 
                     VStack(alignment: .leading, spacing: 3) {
@@ -182,8 +186,11 @@ struct DashboardView: View {
                     }
                 }
                 .padding(.vertical, 5)
+                }
+                .disclosureGroupStyle(AlignedDisclosureGroupStyle())
             }
-            .disclosureGroupStyle(AlignedDisclosureGroupStyle())
+
+            reactNativeProjectsSection
         }
         .listStyle(.inset)
 
@@ -227,6 +234,7 @@ struct DashboardView: View {
             Text("Размер: \(Self.format(cleanup.bytes))\nПуть: \(cleanup.target.path)\n\(cleanup.target.consequence) Завершите активные сборки Gradle перед очисткой.")
         }
         .task { await model.scan() }
+        .task { await model.scanReactNativeProjects() }
     }
 
     private func statistic(_ title: String, bytes: Int64, symbol: String) -> some View {
@@ -249,11 +257,215 @@ struct DashboardView: View {
                 == URL(fileURLWithPath: child.path).standardizedFileURL.path
         }
     }
+
+    @ViewBuilder
+    private var reactNativeProjectsSection: some View {
+        Section {
+            switch model.reactNativeProjects {
+            case .idle:
+                Text("Поиск ещё не запускался")
+                    .foregroundStyle(.secondary)
+            case .loading:
+                ProgressView("Поиск проектов в ~/Documents…")
+                    .padding(.vertical, 8)
+            case .failure(let message):
+                Label(message, systemImage: "exclamationmark.triangle")
+                    .foregroundStyle(.orange)
+            case .loaded(let projects, let warnings):
+                if projects.isEmpty {
+                    Text("React Native / Expo-проекты не найдены")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(projects) { project in
+                        projectDisclosure(project)
+                    }
+                }
+
+                if !warnings.isEmpty {
+                    DisclosureGroup("Предупреждения поиска: \(warnings.count)") {
+                        ForEach(Array(warnings.enumerated()), id: \.offset) { _, warning in
+                            Text(warning)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                        }
+                    }
+                }
+            }
+        } header: {
+            Text("React Native / Expo Projects")
+                .font(.headline)
+        }
+    }
+
+    private func projectDisclosure(_ project: ReactNativeProject) -> some View {
+        DisclosureGroup {
+            VStack(alignment: .leading, spacing: 8) {
+                if project.storage.isEmpty {
+                    Text("Анализируемые каталоги не найдены")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(project.storage) { entry in
+                        HStack(spacing: 10) {
+                            Image(systemName: "folder")
+                                .foregroundStyle(.secondary)
+                                .frame(width: DashboardRowLayout.childIconWidth)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(entry.relativePath)
+                                    .font(.subheadline)
+                                Text(entry.kind.rawValue)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Spacer()
+
+                            if let bytes = entry.bytes {
+                                Text(Self.format(bytes))
+                                    .font(.subheadline.monospacedDigit())
+                            } else {
+                                Text("Недоступно")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange)
+                            }
+
+                            Button {
+                                NSWorkspace.shared.activateFileViewerSelecting([
+                                    URL(fileURLWithPath: entry.path)
+                                ])
+                            } label: {
+                                Image(systemName: "arrow.up.forward.square")
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Показать в Finder")
+                        }
+                    }
+                }
+
+                if let worktree = project.worktree {
+                    Label {
+                        if let mainRepositoryPath = worktree.mainRepositoryPath {
+                            Text("Worktree основного репозитория: \(mainRepositoryPath)")
+                                .textSelection(.enabled)
+                        } else {
+                            Text("Git worktree")
+                        }
+                    } icon: {
+                        Image(systemName: "arrow.triangle.branch")
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+
+                let details = project.warnings + project.storage.compactMap { entry in
+                    entry.error.map { "\(entry.relativePath): \($0)" }
+                }
+                if !details.isEmpty {
+                    DisclosureGroup("Предупреждения: \(details.count)") {
+                        ForEach(Array(details.enumerated()), id: \.offset) { _, warning in
+                            Text(warning)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .textSelection(.enabled)
+                        }
+                    }
+                }
+
+                Text("Общий размер проекта считается отдельно; размеры вложенных каталогов не суммируются.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.vertical, 5)
+        } label: {
+            HStack(spacing: 12) {
+                projectIcon(project)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(project.name)
+                        .font(.headline)
+                    Text(projectDescription(project))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text(project.path)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+
+                Spacer()
+
+                if let bytes = project.totalBytes {
+                    Text(Self.format(bytes))
+                        .font(.headline.monospacedDigit())
+                } else {
+                    Text("Недоступно")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                }
+
+                Button("Finder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([
+                        URL(fileURLWithPath: project.path)
+                    ])
+                }
+            }
+        }
+        .disclosureGroupStyle(AlignedDisclosureGroupStyle())
+    }
+
+    private func projectDescription(_ project: ReactNativeProject) -> String {
+        if project.worktree != nil {
+            return "\(project.type.rawValue) • Worktree"
+        }
+        if project.isBackup {
+            return "\(project.type.rawValue) • Backup"
+        }
+        return project.type.rawValue
+    }
+
+    private func projectIcon(_ project: ReactNativeProject) -> some View {
+        HStack(spacing: 3) {
+            switch project.type {
+            case .expoWithNative, .expoManaged:
+                Text("E")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.purple)
+                    .frame(width: 20, height: 20)
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 5)
+                            .stroke(.purple, lineWidth: 1.5)
+                    }
+            case .reactNativeCLI:
+                Image(systemName: "iphone")
+                    .foregroundStyle(.blue)
+                    .frame(width: 20, height: 20)
+            }
+
+            if project.worktree != nil {
+                Image(systemName: "arrow.triangle.branch")
+                    .font(.caption2)
+                    .foregroundStyle(.cyan)
+                    .help("Git worktree")
+            } else if project.isBackup {
+                Image(systemName: "archivebox.fill")
+                    .font(.caption2)
+                    .foregroundStyle(.orange)
+                    .help("Резервная копия проекта")
+            }
+        }
+        .frame(
+            width: DashboardRowLayout.categoryIconWidth,
+            height: DashboardRowLayout.iconSize
+        )
+    }
 }
 
 private enum DashboardRowLayout {
-    static let disclosureWidth: CGFloat = 22
-    static let categoryIconWidth: CGFloat = 28
+    static let disclosureWidth: CGFloat = 24
+    static let categoryIconWidth: CGFloat = 40
+    static let iconSize: CGFloat = 28
     static let childIconWidth: CGFloat = 20
     static let categorySpacing: CGFloat = 12
     static let childIndent = disclosureWidth + categoryIconWidth + categorySpacing
@@ -271,7 +483,7 @@ private struct AlignedDisclosureGroupStyle: DisclosureGroupStyle {
                         .rotationEffect(.degrees(configuration.isExpanded ? 90 : 0))
                         .frame(
                             width: DashboardRowLayout.disclosureWidth,
-                            height: DashboardRowLayout.categoryIconWidth,
+                            height: DashboardRowLayout.iconSize,
                             alignment: .center
                         )
                         .contentShape(Rectangle())
