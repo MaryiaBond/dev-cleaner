@@ -1,0 +1,47 @@
+{
+  "": {
+    "swift-dependencies": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/primary.swiftdeps"
+  },
+  "/Users/maryiabondar/Documents/DevCleaner/Sources/DevCleaner/CleanupService.swift": {
+    "dependencies": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/CleanupService.d",
+    "object": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/CleanupService.swift.o",
+    "swiftmodule": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/CleanupService~partial.swiftmodule",
+    "swift-dependencies": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/CleanupService.swiftdeps",
+    "diagnostics": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/CleanupService.dia"
+  },
+  "/Users/maryiabondar/Documents/DevCleaner/Sources/DevCleaner/DashboardView.swift": {
+    "dependencies": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/DashboardView.d",
+    "object": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/DashboardView.swift.o",
+    "swiftmodule": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/DashboardView~partial.swiftmodule",
+    "swift-dependencies": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/DashboardView.swiftdeps",
+    "diagnostics": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/DashboardView.dia"
+  },
+  "/Users/maryiabondar/Documents/DevCleaner/Sources/DevCleaner/DashboardViewModel.swift": {
+    "dependencies": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/DashboardViewModel.d",
+    "object": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/DashboardViewModel.swift.o",
+    "swiftmodule": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/DashboardViewModel~partial.swiftmodule",
+    "swift-dependencies": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/DashboardViewModel.swiftdeps",
+    "diagnostics": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/DashboardViewModel.dia"
+  },
+  "/Users/maryiabondar/Documents/DevCleaner/Sources/DevCleaner/DevCleanerApp.swift": {
+    "dependencies": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/DevCleanerApp.d",
+    "object": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/DevCleanerApp.swift.o",
+    "swiftmodule": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/DevCleanerApp~partial.swiftmodule",
+    "swift-dependencies": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/DevCleanerApp.swiftdeps",
+    "diagnostics": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/DevCleanerApp.dia"
+  },
+  "/Users/maryiabondar/Documents/DevCleaner/Sources/DevCleaner/FileSystemScanner.swift": {
+    "dependencies": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/FileSystemScanner.d",
+    "object": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/FileSystemScanner.swift.o",
+    "swiftmodule": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/FileSystemScanner~partial.swiftmodule",
+    "swift-dependencies": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/FileSystemScanner.swiftdeps",
+    "diagnostics": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/FileSystemScanner.dia"
+  },
+  "/Users/maryiabondar/Documents/DevCleaner/Sources/DevCleaner/StorageCategory.swift": {
+    "dependencies": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/StorageCategory.d",
+    "object": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/StorageCategory.swift.o",
+    "swiftmodule": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/StorageCategory~partial.swiftmodule",
+    "swift-dependencies": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/StorageCategory.swiftdeps",
+    "diagnostics": "/Users/maryiabondar/Documents/DevCleaner/.build/arm64-apple-macosx/debug/DevCleaner.build/StorageCategory.dia"
+  }
+}
