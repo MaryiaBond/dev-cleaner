@@ -39,6 +39,58 @@ enum StorageCategory: String, CaseIterable, Identifiable, Sendable {
     var canClean: Bool { self == .derivedData }
 }
 
+enum GradleCleanupTarget: String, CaseIterable, Identifiable, Sendable {
+    case caches
+    case daemon
+    case native
+    case wrapperDists
+    case temporary
+
+    var id: String { rawValue }
+
+    var relativePath: String {
+        switch self {
+        case .caches: return "caches"
+        case .daemon: return "daemon"
+        case .native: return "native"
+        case .wrapperDists: return "wrapper/dists"
+        case .temporary: return ".tmp"
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .caches: return "Gradle caches"
+        case .daemon: return "Gradle daemon"
+        case .native: return "Gradle native"
+        case .wrapperDists: return "Gradle wrapper distributions"
+        case .temporary: return "Gradle temporary files"
+        }
+    }
+
+    var consequence: String {
+        switch self {
+        case .caches:
+            return "Зависимости и артефакты могут скачиваться и собираться заново."
+        case .daemon:
+            return "Gradle создаст данные daemon заново при следующем запуске."
+        case .native:
+            return "Нативные компоненты Gradle могут быть распакованы заново."
+        case .wrapperDists:
+            return "Дистрибутивы Gradle будут скачаны заново при следующей сборке."
+        case .temporary:
+            return "Временные файлы Gradle будут созданы заново при необходимости."
+        }
+    }
+
+    var path: String {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".gradle", isDirectory: true)
+            .appendingPathComponent(relativePath, isDirectory: true)
+            .path
+    }
+}
+
 struct StorageItem: Identifiable, Sendable {
     let category: StorageCategory
     let bytes: Int64?

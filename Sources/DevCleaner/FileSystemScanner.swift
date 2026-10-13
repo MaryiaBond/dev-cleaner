@@ -15,26 +15,11 @@ enum FileSystemScanner {
                 return StorageItem(category: category, bytes: nil, note: "Символическая ссылка: пропущено")
             }
 
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/du")
-            process.arguments = ["-sk", url.path]
-            let pipe = Pipe()
-            process.standardOutput = pipe
-            process.standardError = Pipe()
-
-            do {
-                try process.run()
-                let data = pipe.fileHandleForReading.readDataToEndOfFile()
-                process.waitUntilExit()
-                guard process.terminationStatus == 0,
-                      let output = String(data: data, encoding: .utf8),
-                      let first = output.split(whereSeparator: { $0 == " " || $0 == "\t" || $0 == "\n" }).first,
-                      let kib = Int64(first) else {
-                    return StorageItem(category: category, bytes: nil, note: "Ошибка чтения или недостаточно прав")
-                }
-                return StorageItem(category: category, bytes: kib * 1024, note: nil)
-            } catch {
-                return StorageItem(category: category, bytes: nil, note: error.localizedDescription)
+            switch size(of: url) {
+            case .success(let bytes):
+                return StorageItem(category: category, bytes: bytes, note: nil)
+            case .failure(let error):
+                return StorageItem(category: category, bytes: nil, note: error.message)
             }
         }
     }
@@ -47,58 +32,130 @@ enum FileSystemScanner {
     }
 
 
-    static func scanChildren(of category: StorageCategory) -> [StorageChild] {
+    static func scanChildren(of category: StorageCategory) -> ChildScanResult {
         let directory = URL(
             fileURLWithPath: category.path,
             isDirectory: true
         )
 
-        guard let urls = try? FileManager.default.contentsOfDirectory(
-            at: directory,
-            includingPropertiesForKeys: [.isSymbolicLinkKey],
-            options: []
-        ) else {
-            return []
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: directory.path, isDirectory: &isDirectory) else {
+            return .missing
+        }
+        guard isDirectory.boolValue else {
+            return .failure("Путь не является директорией")
         }
 
-        return urls.compactMap { url -> StorageChild? in
-            let values = try? url.resourceValues(
-                forKeys: [.isSymbolicLinkKey]
+        do {
+            let values = try directory.resourceValues(forKeys: [.isSymbolicLinkKey])
+            guard values.isSymbolicLink != true else {
+                return .failure("Символическая ссылка: сканирование запрещено")
+            }
+        } catch {
+            return .failure(error.localizedDescription)
+        }
+
+        let urls: [URL]
+        do {
+            var contents = try FileManager.default.contentsOfDirectory(
+                at: directory,
+                includingPropertiesForKeys: [.isDirectoryKey, .isSymbolicLinkKey],
+                options: []
             )
 
-            guard values?.isSymbolicLink != true else {
-                return nil
+            if category == .gradle {
+                let wrapperDists = URL(
+                    fileURLWithPath: GradleCleanupTarget.wrapperDists.path,
+                    isDirectory: true
+                )
+                if FileManager.default.fileExists(atPath: wrapperDists.path) {
+                    contents.append(wrapperDists)
+                }
             }
+            urls = contents
+        } catch {
+            return .failure(error.localizedDescription)
+        }
 
-            let process = Process()
-            process.executableURL = URL(fileURLWithPath: "/usr/bin/du")
-            process.arguments = ["-sk", url.path]
+        var children: [StorageChild] = []
+        var warnings: [String] = []
 
-            let output = Pipe()
-            process.standardOutput = output
-            process.standardError = Pipe()
-
+        for url in urls {
             do {
-                try process.run()
-                let data = output.fileHandleForReading.readDataToEndOfFile()
-                process.waitUntilExit()
+                let values = try url.resourceValues(
+                    forKeys: [.isDirectoryKey, .isSymbolicLinkKey]
+                )
 
-                guard process.terminationStatus == 0,
-                    let text = String(data: data, encoding: .utf8),
-                    let first = text.split(whereSeparator: \.isWhitespace).first,
-                    let kib = Int64(first) else {
-                    return nil
+                guard values.isSymbolicLink != true else {
+                    warnings.append("\(url.lastPathComponent): символическая ссылка пропущена")
+                    continue
                 }
 
-                return StorageChild(
-                    name: url.lastPathComponent,
-                    path: url.path,
-                    bytes: kib * 1024
-                )
+                switch size(of: url) {
+                case .success(let bytes):
+                    let name = url.path == GradleCleanupTarget.wrapperDists.path
+                        ? GradleCleanupTarget.wrapperDists.relativePath
+                        : url.lastPathComponent
+                    children.append(StorageChild(
+                        name: name,
+                        path: url.path,
+                        bytes: bytes,
+                        isDirectory: values.isDirectory == true
+                    ))
+                case .failure(let error):
+                    warnings.append("\(url.lastPathComponent): \(error.message)")
+                }
             } catch {
-                return nil
+                warnings.append("\(url.lastPathComponent): \(error.localizedDescription)")
             }
         }
-        .sorted { $0.bytes > $1.bytes }
+
+        return .loaded(
+            children.sorted { $0.bytes > $1.bytes },
+            warnings: warnings
+        )
     }
+
+    private static func size(of url: URL) -> Result<Int64, ScanError> {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/du")
+        process.arguments = ["-sk", url.path]
+
+        // Один канал для stdout и stderr читается, пока процесс работает:
+        // ни один из потоков вывода не может заполнить отдельный буфер и заблокировать du.
+        let output = Pipe()
+        process.standardOutput = output
+        process.standardError = output
+
+        do {
+            try process.run()
+            let data = output.fileHandleForReading.readDataToEndOfFile()
+            process.waitUntilExit()
+
+            let text = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard process.terminationStatus == 0 else {
+                return .failure(ScanError(
+                    message: text.isEmpty ? "du завершился с кодом \(process.terminationStatus)" : text
+                ))
+            }
+            guard let first = text.split(whereSeparator: \.isWhitespace).first,
+                  let kib = Int64(first) else {
+                return .failure(ScanError(message: "Не удалось прочитать результат du"))
+            }
+            return .success(kib * 1024)
+        } catch {
+            return .failure(ScanError(message: error.localizedDescription))
+        }
+    }
+}
+
+struct ScanError: Error, Sendable {
+    let message: String
+}
+
+enum ChildScanResult: Sendable {
+    case loaded([StorageChild], warnings: [String])
+    case missing
+    case failure(String)
 }
